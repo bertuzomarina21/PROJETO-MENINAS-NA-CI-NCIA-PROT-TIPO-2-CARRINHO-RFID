@@ -1,0 +1,296 @@
+#include <SPI.h>
+#include <MFRC522.h>
+#include <ESP32Servo.h>
+
+// PINOS //
+
+#define SS_PIN     21
+#define RST_PIN    22
+
+#define LED1_PIN   32   // AMARELO
+#define LED2_PIN   12   // VERMELHO
+#define LED3_PIN   13   // VERDE
+#define LED4_PIN   14   // AZUL
+#define LED5_PIN   15   // ROSA
+
+#define SERVO1_PIN 25
+#define SERVO2_PIN 27
+
+// RFID //
+
+MFRC522 rfid(SS_PIN, RST_PIN);
+
+// SERVO //
+
+Servo servo1;
+Servo servo2;
+
+//calibração servo1 (esquerda)
+#define SERVO_CENTRO1  110 
+#define SERVO_FRENTE1  130 
+#define SERVO_TRAS1    90
+#define SERVO_DIREITA1  130 
+#define SERVO_ESQUERDA1 90
+
+//calibração servo2 (direita)
+#define SERVO_CENTRO2 95
+#define SERVO_FRENTE2 75
+#define SERVO_TRAS2    115
+#define SERVO_DIREITA2 115
+#define SERVO_ESQUERD2 75
+
+
+// UID DOS CARTÕES //
+
+byte cartao1[] = {0xDC, 0x3D, 0x61, 0x7B};  // AMARELO
+byte cartao2[] = {0xA6, 0x31, 0x67, 0xF8};  // VERMELHO
+byte cartao3[] = {0xB6, 0xF8, 0x5A, 0xF8};  // VERDE
+byte cartao4[] = {0xFD, 0x36, 0xD9, 0xAB};  // AZUL
+
+byte tamanhoCartao1 = sizeof(cartao1);
+byte tamanhoCartao2 = sizeof(cartao2);
+byte tamanhoCartao3 = sizeof(cartao3);
+byte tamanhoCartao4 = sizeof(cartao4);
+
+
+// COMPARAR UID //
+
+bool compararUID(
+  byte *uidLido,
+  byte tamanhoLido,
+  byte *uidCadastrado,
+  byte tamanhoCadastrado)
+{
+  if (tamanhoLido != tamanhoCadastrado)
+    return false;
+
+  for (byte i = 0; i < tamanhoLido; i++)
+  {
+    if (uidLido[i] != uidCadastrado[i])
+      return false;
+  }
+
+  return true;
+}
+
+// MOSTRAR UID //
+
+void mostrarUID()
+{
+  Serial.print("UID: ");
+
+  for (byte i = 0; i < rfid.uid.size; i++)
+  {
+    if (rfid.uid.uidByte[i] < 0x10)
+      Serial.print("0");
+
+    Serial.print(rfid.uid.uidByte[i], HEX);
+
+    if (i < rfid.uid.size - 1)
+      Serial.print(":");
+  }
+
+  Serial.println();
+}
+
+// DESLIGAR LEDs //
+
+void desligarTodosLEDs()
+{
+  digitalWrite(LED1_PIN, LOW);
+  digitalWrite(LED2_PIN, LOW);
+  digitalWrite(LED3_PIN, LOW);
+  digitalWrite(LED4_PIN, LOW);
+}
+
+
+// SETUP //
+
+void setup()
+{
+  Serial.begin(115200);
+
+  // LEDs
+  pinMode(LED1_PIN, OUTPUT);
+  pinMode(LED2_PIN, OUTPUT);
+  pinMode(LED3_PIN, OUTPUT);
+  pinMode(LED4_PIN, OUTPUT);
+
+  desligarTodosLEDs();
+
+
+  // Servo
+  servo1.attach(SERVO1_PIN);
+  servo2.attach(SERVO2_PIN);
+
+  // Começa no centro
+  servo1.write(SERVO_CENTRO1);
+  servo2.write(SERVO_CENTRO2);
+
+  Serial.println("Servo iniciado em 85 graus");
+
+
+  // SPI
+  SPI.begin(18, 19, 23, 21);
+
+
+  // RFID
+  rfid.PCD_Init();
+
+  Serial.println();
+  Serial.println("============================");
+  Serial.println("   SISTEMA RFID INICIADO");
+  Serial.println("============================");
+  Serial.println("Aproxime um cartao...");
+}
+
+void loop()
+{
+  servo1.write(SERVO_CENTRO1);
+  servo2.write(SERVO_CENTRO2);
+  
+  
+  delay(500);
+  // Verifica cartão
+  if (!rfid.PICC_IsNewCardPresent())
+    return;
+
+  if (!rfid.PICC_ReadCardSerial())
+    return;
+
+
+  // Mostra UID
+  mostrarUID();
+
+
+  // VERDE
+  // CARTÃO 1
+
+  if (compararUID(
+        rfid.uid.uidByte,
+        rfid.uid.size,
+        cartao1,
+        tamanhoCartao1))
+  {
+    Serial.println("Cartao 1 reconhecido!");
+    Serial.println("LED VERDE");
+    Serial.println("Servo: FRENTE");
+
+    desligarTodosLEDs();
+
+    digitalWrite(LED1_PIN, HIGH);
+
+    servo1.write(SERVO_FRENTE1);
+    servo2.write(SERVO_FRENTE2);
+  
+    delay(500);
+  }
+
+  // VERMELHO
+  // CARTÃO 2
+
+  else if (compararUID(
+             rfid.uid.uidByte,
+             rfid.uid.size,
+             cartao2,
+             tamanhoCartao2))
+  {
+    Serial.println("Cartao 2 reconhecido!");
+    Serial.println("LED VERMELHO");
+    Serial.println("Servo: TRAS");
+
+    desligarTodosLEDs();
+
+    digitalWrite(LED2_PIN, HIGH);
+
+    servo1.write(SERVO_TRAS1);
+    servo2.write(SERVO_TRAS2);
+  
+    delay(500);
+  }
+
+  // ROSA
+  // CARTÃO 3
+
+  else if (compararUID(
+             rfid.uid.uidByte,
+             rfid.uid.size,
+             cartao3,
+             tamanhoCartao3))
+  {
+    Serial.println("Cartao 3 reconhecido!");
+    Serial.println("LED ROSA");
+    Serial.println("Servo: CENTRO / 85 GRAUS");
+
+    desligarTodosLEDs();
+
+    digitalWrite(LED3_PIN, HIGH);
+
+    servo1.write(SERVO_CENTRO1);
+    servo2.write(SERVO_CENTRO2);
+  
+    delay(500);
+  }
+
+  // AZUL
+  // CARTÃO 4
+
+  else if (compararUID(
+             rfid.uid.uidByte,
+             rfid.uid.size,
+             cartao4,
+             tamanhoCartao4))
+  {
+    Serial.println("Cartao 4 reconhecido!");
+    Serial.println("LED AZUL");
+    Serial.println("Servo: DIREITA");
+
+    desligarTodosLEDs();
+
+    digitalWrite(LED4_PIN, HIGH);
+
+    servo1.write(SERVO_DIREITA1);
+    servo2.write(SERVO_DIREITA2);
+  
+    delay(300);
+  }
+      
+  // AMARELO
+  // CARTÃO 5
+  
+   {
+    Serial.println("Cartao 5 reconhecido!");
+    Serial.println("LED AMARELO");
+    Serial.println("Servo: ESQUERDA");
+
+    desligarTodosLEDs();
+
+    digitalWrite(LED4_PIN, HIGH);
+
+    servo1.write(SERVO_ESQUERDA1);
+    servo2.write(SERVO_ESQUERDA2);
+  
+    delay(300);
+  }
+
+  // CARTÃO DESCONHECIDO //
+
+  else
+  {
+    Serial.println("Cartao NAO cadastrado!");
+
+    desligarTodosLEDs();
+
+    // Volta para o centro
+    servo1.write(SERVO_CENTRO1);
+    servo2.write(SERVO_CENTRO2);
+  
+    delay(500);
+  }
+
+  // Finaliza RFID
+  rfid.PICC_HaltA();
+  rfid.PCD_StopCrypto1();
+
+  delay(500);
+}
